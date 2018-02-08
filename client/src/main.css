@@ -1,0 +1,9 @@
+.main {
+    color: #666;
+}
+.main button {
+    padding: 6px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    outline: none;
+}
