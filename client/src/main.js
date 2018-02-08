@@ -26,7 +26,7 @@ export function Start () {
         audio: true
     }).then(function (mediaStream) {
         const mediaStreamSource = audioContext.createMediaStreamSource(mediaStream);   // 媒体流音频源
-        audioRecorder = new Recorder(mediaStreamSource, { numChannels: 1, sampleRate: 16 * 1000 });    // numChannels=1为单声道，sampleRate：采样率
+        audioRecorder = new Recorder(mediaStreamSource, { numChannels: 1, sampleBit: 8, sampleRate: 16 * 1000 });    // numChannels=1为单声道，sampleRate：采样率
         audioRecorder.start(socket);
     }).catch(function (error) {
         console.warn(error.name, error.code);

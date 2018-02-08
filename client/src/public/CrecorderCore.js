@@ -26,6 +26,7 @@ export class Recorder {
             bufferLen: 4096,
             numChannels: 2,
             cfgRate: 16000,
+            sampleBit: 16,
             mimeType: 'audio/wav'
         };
         this.recording = false;
@@ -35,6 +36,7 @@ export class Recorder {
         };
         Object.assign(this.config, cfg);
         this.context = source.context;
+        console.log(this.context);
         this.node = (this.context.createScriptProcessor ||
             this.context.createJavaScriptNode).call(this.context,
             this.config.bufferLen, this.config.numChannels, this.config.numChannels);
@@ -63,6 +65,7 @@ export class Recorder {
             let recLength = 0,
                 recBuffers = [],
                 sampleRate,
+                sampleBit,
                 numChannels;
 
             this.onmessage = function (e) {
@@ -88,11 +91,12 @@ export class Recorder {
             function init(config) {
                 sampleRate = config.sampleRate;
                 numChannels = config.numChannels;
+                sampleBit = config.sampleBit;
                 cfgRate = config.cfgRate;
                 initBuffers();
             }
 
-            // 修改采样率和采样数据
+            // 修改采样率和修正采样数据
             var interpolateArray = (data, newSampleRate, oldSampleRate) => {
                 var fitCount = Math.round(data.length * (newSampleRate / oldSampleRate));
                 var newData = new Array();
@@ -112,6 +116,20 @@ export class Recorder {
                 return before + (after - before) * atPoint;
             };
 
+            // other modife samplerate
+            var modifeSampleRate = (data, newSampleRate, oldSampleRate) => {
+                var compression = parseInt(oldSampleRate / newSampleRate);
+                var length = data.length / compression;
+                var result = new Float32Array(length);
+                var index = 0, j = 0;
+                while (index < length) {
+                    result[index] = data[j];
+                    j += compression;
+                    index++;
+                }
+                return result;
+            };
+
             function record(inputBuffer) {
                 var tempBf = [];
                 for (var channel = 0; channel < numChannels; channel++) {
@@ -124,7 +142,7 @@ export class Recorder {
                 var buffers = [];
                 for (var channel = 0; channel < numChannels; channel++) {
                     var buffer = mergeBuffers(recBuffers[channel], recLength);
-                    buffer = interpolateArray(buffer, cfgRate, sampleRate);
+                    buffer = modifeSampleRate(buffer, cfgRate, sampleRate);
                     buffers.push(buffer);
                 }
                 sampleRate = cfgRate;
@@ -136,7 +154,6 @@ export class Recorder {
                 }
                 var dataview = encodeWAV(interleaved);
                 var audioBlob = new Blob([dataview], { type: type });
-
                 self.postMessage({ command: 'exportWAV', data: audioBlob });
             }
 
@@ -193,6 +210,15 @@ export class Recorder {
                 return result;
             }
 
+            function floatTo8BitPCM(output, offset, input) {
+                for (var i = 0; i < input.length; i++ , offset++) {
+                    var s = Math.max(-1, Math.min(1, input[i]));
+                    var val = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                    val = parseInt(255 / (65535 / (val + 32768)));
+                    output.setInt8(offset, val, true);
+                }
+            }
+
             function floatTo16BitPCM(output, offset, input) {
                 for (let i = 0; i < input.length; i++ , offset += 2) {
                     let s = Math.max(-1, Math.min(1, input[i]));
@@ -207,13 +233,14 @@ export class Recorder {
             }
 
             function encodeWAV(samples) {
-                let buffer = new ArrayBuffer(44 + samples.length * 2);
+                const bitRate = sampleBit / 8;
+                let buffer = new ArrayBuffer(44 + samples.length * bitRate);
                 let view = new DataView(buffer);
 
                 /* RIFF identifier */
                 writeString(view, 0, 'RIFF');
                 /* RIFF chunk length */
-                view.setUint32(4, 36 + samples.length * 2, true);
+                view.setUint32(4, 36 + samples.length * bitRate, true);
                 /* RIFF type */
                 writeString(view, 8, 'WAVE');
                 /* format chunk identifier */
@@ -227,17 +254,21 @@ export class Recorder {
                 /* sample rate */
                 view.setUint32(24, sampleRate, true);
                 /* byte rate (sample rate * block align) */
-                view.setUint32(28, sampleRate * 4, true);
+                view.setUint32(28, sampleRate * numChannels * bitRate, true);
                 /* block align (channel count * bytes per sample) */
-                view.setUint16(32, numChannels * 2, true);
+                view.setUint16(32, numChannels * bitRate, true);
                 /* bits per sample */
-                view.setUint16(34, 16, true);
+                view.setUint16(34, sampleBit, true);
                 /* data chunk identifier */
                 writeString(view, 36, 'data');
                 /* data chunk length */
                 view.setUint32(40, samples.length * 2, true);
 
-                floatTo16BitPCM(view, 44, samples);
+                if (sampleBit === 8 || sampleBit === '8') {
+                    floatTo8BitPCM(view, 44, samples);
+                } else {
+                    floatTo16BitPCM(view, 44, samples);
+                }
 
                 return view;
             }
@@ -247,6 +278,7 @@ export class Recorder {
             command: 'init',
             config: {
                 sampleRate: this.context.sampleRate,
+                sampleBit: this.config.sampleBit,
                 numChannels: this.config.numChannels,
                 cfgRate: this.config.sampleRate
             }
