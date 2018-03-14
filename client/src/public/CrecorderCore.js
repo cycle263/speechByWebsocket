@@ -36,7 +36,6 @@ export class Recorder {
         };
         Object.assign(this.config, cfg);
         this.context = source.context;
-        console.log(this.context);
         this.node = (this.context.createScriptProcessor ||
             this.context.createJavaScriptNode).call(this.context,
             this.config.bufferLen, this.config.numChannels, this.config.numChannels);

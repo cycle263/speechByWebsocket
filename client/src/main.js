@@ -15,7 +15,7 @@ export function Start () {
     socket.on('connect', () => {
         console.log('ws connected');
     });
-    socket.on('event', (data) => {
+    socket.on('Clientevent', (data) => {
         console.log(data);
     });
     socket.on('disconnect', () => { 
