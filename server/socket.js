@@ -4,7 +4,8 @@ io.on('connection', function (client) {
     client.on('event', function (data) { 
         console.log('event', data);
     });
-    client.on('with-binary', function (arg) {
+    client.on('with-binary', function (config, arg) {
+        console.log(config);
         io.emit('Clientevent', '获取到录音buffer...');
     });
     client.on('disconnect', function () { });

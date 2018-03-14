@@ -53,7 +53,16 @@ export class Recorder {
                 command: 'record',
                 buffer: buffer
             });
-            this.socket.emit('with-binary', newBuffer);
+            this.socket.emit('with-binary', {
+                "actorId": "123456", // 小二id或者用户Id
+                "actorType": "SERVER", //SERVER  CUSTOMER
+                "appName": "hotline",
+                "bizId": "123456", //acid
+                "bizType": "hotline",
+                "endTime": "1503846181691",
+                "operationType": "asr", //暂时写死
+                "startTime": "1503846181691"
+            }, newBuffer);
         };
 
         source.connect(this.node);
