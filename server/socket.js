@@ -1,5 +1,3 @@
-import { disconnect } from 'cluster';
-
 var server = require('http').createServer();
 var io = require('socket.io')(server);
 io.on('connection', function (client) {
