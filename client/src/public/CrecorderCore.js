@@ -23,7 +23,7 @@ const linearInterpolate = (before, after, atPoint) => {
 export class Recorder {
     constructor(source, cfg) {
         this.config = {
-            bufferLen: 4096,
+            bufferLen: 1024,
             numChannels: 2,
             cfgRate: 16000,
             sampleBit: 16,
@@ -45,7 +45,7 @@ export class Recorder {
 
             var buffer = [];
             for (var channel = 0; channel < this.config.numChannels; channel++) {
-                buffer.push(e.inputBuffer.getChannelData(channel));
+                buffer.push(e.inputBuffer.getChannelData(channel));     // return Float32Array
             }
             
             var newBuffer = interpolateArray(buffer, this.config.cfgRate, this.context.sampleRate);
@@ -53,16 +53,8 @@ export class Recorder {
                 command: 'record',
                 buffer: buffer
             });
-            this.socket.emit('with-binary', {
-                "actorId": "123456", // 小二id或者用户Id
-                "actorType": "SERVER", //SERVER  CUSTOMER
-                "appName": "hotline",
-                "bizId": "123456", //acid
-                "bizType": "hotline",
-                "endTime": "1503846181691",
-                "operationType": "asr", //暂时写死
-                "startTime": "1503846181691"
-            }, newBuffer);
+            // var audioBlob = new Blob([newBuffer], { type: this.config.mimeType });
+            this.socket.emit('with-binary', newBuffer);
         };
 
         source.connect(this.node);
