@@ -1,15 +1,22 @@
+import { disconnect } from 'cluster';
+
 var server = require('http').createServer();
 var io = require('socket.io')(server);
 io.on('connection', function (client) {
-    client.on('event', function (data) { 
-        console.log('event', data);
+    client.on('init', function (data, fn) {
+        console.log(data);
+        fn && fn('初始化成功，开始录音吧');
     });
-    client.on('with-binary', function (config, arg) {
-        // io.emit('Clientevent', '获取到录音buffer...');
+
+    client.on('with-binary', function (data, fn) {
+        io.emit('Clientevent', '正在获取到录音buffer...');
     });
-    client.on('disconnect', function () { });
+    client.on('disconnect', function () { 
+        console.log('ws disconnect');
+    });
 });
 
+// 解析数据帧
 function decodeDataFrame(e) {
     var i = 0, j, s, frame = {
         //解析前两个字节的基本数据
