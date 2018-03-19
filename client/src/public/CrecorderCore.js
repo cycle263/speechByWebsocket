@@ -48,7 +48,7 @@ export class Recorder {
                 buffer.push(e.inputBuffer.getChannelData(channel));     // return Float32Array
             }
             
-            var newBuffer = interpolateArray(buffer, this.config.cfgRate, this.context.sampleRate);
+            var newBuffer = interpolateArray(buffer[0], this.config.cfgRate, this.context.sampleRate);
             this.worker.postMessage({
                 command: 'record',
                 buffer: buffer
