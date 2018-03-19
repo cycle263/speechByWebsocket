@@ -2,7 +2,7 @@ import InlineWorker from 'inline-worker';
 
 // 修改采样率和采样数据
 const interpolateArray = (data, newSampleRate, oldSampleRate) => {
-    var fitCount = Math.round(data.length * (newSampleRate / oldSampleRate));
+    var fitCount = Math.round(data.length * (newSampleRate / oldSampleRate));   // 新buffer长度
     var newData = new Array();
     var springFactor = new Number((data.length - 1) / (fitCount - 1));
     newData[0] = data[0]; // for new allocation
