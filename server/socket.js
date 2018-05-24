@@ -1,14 +1,44 @@
+// import { setInterval, setTimeout } from 'timers';
+
+var fs = require('fs');
+var path = require('path');
 var server = require('http').createServer();
 var io = require('socket.io')(server);
+
 io.on('connection', function (client) {
+  var countNum = 0;
+
     client.on('init', function (data, fn) {
         console.log(data);
         fn && fn('初始化成功，开始录音吧');
     });
 
     client.on('with-binary', function (data, fn) {
-        io.emit('Clientevent', '正在获取到录音buffer...');
+      countNum++;
+      if (countNum < 3) {
+        io.emit('Clientevent', '正在获取到录音buffer...' + data);
+      }
     });
+
+    setTimeout(() => {
+      const mp4 = path.resolve(__dirname, '../assets/aliyun.mp4');
+      let readStream = fs.createReadStream(mp4);
+
+      readStream.on('data', (chunk) => {
+        console.log('readStream: ', chunk.length, chunk.byteLength);
+        io.emit('Clientevent', chunk);
+      })
+
+      io.emit('Clientevent', {
+        "success": true,
+        "finish": false,
+        "text": "请问你是不是遇到了花呗无法支付",
+        "actorType": "SERVER or CUSTOMER",
+        "bizId": "aaa",
+        "index": 1
+      });
+    }, 2000);
+
     client.on('disconnect', function () { 
         console.log('ws disconnect');
     });
