@@ -120,7 +120,7 @@
                         var buffer = new ArrayBuffer(4 + samples.length * bitRatio);
                         var view = new DataView(buffer);
 
-                        view.setUint8(0, l >> 24 & 0xff);
+                        view.setUint8(0, l >> 24 & 0xff);   // setuint8偏移一位，setuint18偏移两位
                         view.setUint8(1, l >> 16 & 0xff);
                         view.setUint8(2, l >> 8 & 0xff);
                         view.setUint8(3, l & 0xff);
