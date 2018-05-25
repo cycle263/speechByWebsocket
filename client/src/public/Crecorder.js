@@ -150,7 +150,7 @@
                         // var customBuffer = mergeCustomBuffers(buffer[0], buffer[0].length);
                         // var customArray = interpolateArray(customBuffer, _this.config.cfgRate, this.context.sampleRate);
 
-                        var datavi e w = _this.enco d eDataView(customBuffer1);
+                        var dataview = _this.encodeDataView(customBuffer1);
                         // console.log(customBuffer1, dataview);
                         var audioBlob = new Blob([dataview], { type: 'audio/wav' });
                         var blobUrl = window.URL.createObjectURL(audioBlob);
