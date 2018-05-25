@@ -28,6 +28,15 @@ export function Start () {
         const mediaStreamSource = audioContext.createMediaStreamSource(mediaStream);   // 媒体流音频源
         audioRecorder = new Recorder(mediaStreamSource, { numChannels: 1, sampleBit: 8, sampleRate: 16 * 1000 });    // numChannels=1为单声道，sampleRate：采样率
         audioRecorder.start(socket);
+
+        // 定时器模式
+        // setInterval(() => {
+        //     audioRecorder.exportWAV((audioBlob) => {
+        //         audioSocket.send(audioBlob)
+        //         audioRecorder.stop();
+        //         audioRecorder.clear();
+        //     });
+        // }, 20);
     }).catch(function (error) {
         console.warn(error.name, error.code);
         if (window.location.protocol === 'http') {
@@ -52,6 +61,14 @@ export function Start () {
                 break;
         }
     });
+    // setTimeout(() => {
+    //     console.log(audioRecorder);
+    //     audioRecorder.exportWAV((audioBlob) => {
+    //         audioRecorder.forceDownload(audioBlob);
+    //     });
+    //     audioRecorder.stop();
+    //     this.setState({ gifShow: 'hidden' });
+    // }, 3000);
 };
 
 export function Stop () {

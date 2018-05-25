@@ -1,22 +1,5 @@
 // 可自定义采样率和采样位数，中文注释
-(function (f) { 
-console.log(exports, module, define, window, self, global);
-if (typeof exports === "object" && typeof module !== "undefined") { 
-    module.exports = f()
-} else if (typeof define === "function" && define.amd) { 
-    define([], f) 
-} else { 
-    var g; 
-    if (typeof window !== "undefined") {
-        g = window
-    } else if (typeof global !== "undefined") {
-        g = global 
-    } else if (typeof self !== "undefined") {
-        g = self 
-    } else { 
-        g = this 
-    } g.Recorder = f() 
-} })(function () {
+(function (f) { if (typeof exports === "object" && typeof module !== "undefined") { module.exports = f() } else if (typeof define === "function" && define.amd) { define([], f) } else { var g; if (typeof window !== "undefined") { g = window } else if (typeof global !== "undefined") { g = global } else if (typeof self !== "undefined") { g = self } else { g = this } g.Recorder = f() } })(function () {
     var define, module, exports; return (function e(t, n, r) { function s(o, u) { if (!n[o]) { if (!t[o]) { var a = typeof require == "function" && require; if (!u && a) return a(o, !0); if (i) return i(o, !0); var f = new Error("Cannot find module '" + o + "'"); throw f.code = "MODULE_NOT_FOUND", f } var l = n[o] = { exports: {} }; t[o][0].call(l.exports, function (e) { var n = t[o][1][e]; return s(n ? n : e) }, l, l.exports, e, t, n, r) } return n[o].exports } var i = typeof require == "function" && require; for (var o = 0; o < r.length; o++)s(r[o]); return s })({
         1: [function (require, module, exports) {
             "use strict";
@@ -55,14 +38,72 @@ if (typeof exports === "object" && typeof module !== "undefined") {
                 }
             }
 
+            // 修改采样率和采样数据
+            function interpolateArray(data, newSampleRate, oldSampleRate) {
+                var fitCount = Math.round(data.length * (newSampleRate / oldSampleRate));
+                var newData = new Array();
+                var springFactor = new Number((data.length - 1) / (fitCount - 1));
+                newData[0] = data[0]; // for new allocation
+                for (var i = 1; i < fitCount - 1; i++) {
+                    var tmp = i * springFactor;
+                    var before = new Number(Math.floor(tmp)).toFixed();
+                    var after = new Number(Math.ceil(tmp)).toFixed();
+                    var atPoint = tmp - before;
+                    newData[i] = linearInterpolate(data[before], data[after], atPoint);
+                }
+                newData[fitCount - 1] = data[data.length - 1]; // for new allocation
+                return newData;
+            };
+            function linearInterpolate(before, after, atPoint) {
+                return before + (after - before) * atPoint;
+            };
+
+            function mergeCustomBuffers(recBuffers, recLength) {
+                var result = new Float32Array(recLength);
+                var l = result.length;
+                // result.set([l >> 24 & 0xff, l >> 16 & 0xff, l >> 8 & 0xff, l & 0xff], 0);
+                var offset = 0;
+                for (var i = 0; i < recBuffers.length; i++) {
+                    result.set([recBuffers[i]], offset);
+                    offset += recBuffers[i].length;
+                }
+                return result;
+            }
+            function floatTo16BitPCM(output, offset, input) {
+                for (var i = 0; i < input.length; i++ , offset += 2) {
+                    var s = Math.max(-1, Math.min(1, input[i]));
+                    output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                }
+            }
+
             var Recorder = exports.Recorder = (function () {
                 function Recorder(source, cfg) {
                     var _this = this;
 
+                    function compress(buffer, len) { //合并压缩
+                        var data = new Float32Array(len);
+                        var offset = 0;
+                        for (var i = 0; i < buffer.length; i++) {
+                            data.set([buffer[i]], offset);
+                            offset += 1;
+                        }
+                        //压缩
+                        var compression = parseInt(_this.context.sampleRate / _this.config.sampleRate);
+                        var length = data.length / compression;
+                        var result = new Float32Array(length);
+                        var index = 0, j = 0;
+                        while (index < length) {
+                            result[index] = data[j];
+                            j += compression;
+                            index++;
+                        }
+                        return result;
+                    }
+
                     _classCallCheck(this, Recorder);
 
                     this.config = {
-                        bufferLen: 4096,
+                        bufferLen: 1024,
                         cfgRate: 16000,
                         numChannels: 2,
                         mimeType: 'audio/wav'
@@ -72,6 +113,21 @@ if (typeof exports === "object" && typeof module !== "undefined") {
                         getBuffer: [],
                         exportWAV: []
                     };
+                    this.encodeDataView = function(samples) {
+                        var l = samples.length * 2;
+                        var sampleBit = 16;         // 默认采样数据位数，不建议修改, 噪音大
+                        var bitRatio = sampleBit / 8;
+                        var buffer = new ArrayBuffer(4 + samples.length * bitRatio);
+                        var view = new DataView(buffer);
+
+                        view.setUint8(0, l >> 24 & 0xff);
+                        view.setUint8(1, l >> 16 & 0xff);
+                        view.setUint8(2, l >> 8 & 0xff);
+                        view.setUint8(3, l & 0xff);
+                        floatTo16BitPCM(view, 4, samples);
+
+                        return view;
+                    }
 
                     Object.assign(this.config, cfg);
                     this.context = source.context;
@@ -84,10 +140,22 @@ if (typeof exports === "object" && typeof module !== "undefined") {
                         for (var channel = 0; channel < _this.config.numChannels; channel++) {
                             buffer.push(e.inputBuffer.getChannelData(channel));
                         }
+                        // var newArray = interpolateArray(buffer[0], _this.config.cfgRate, this.context.sampleRate);
                         _this.worker.postMessage({
                             command: 'record',
                             buffer: buffer
                         });
+                        var l = _this.config.bufferLen;
+                        var customBuffer1 = compress(buffer[0], buffer[0].length);
+                        // var customBuffer = mergeCustomBuffers(buffer[0], buffer[0].length);
+                        // var customArray = interpolateArray(customBuffer, _this.config.cfgRate, this.context.sampleRate);
+
+                        var datavi e w = _this.enco d eDataView(customBuffer1);
+                        // console.log(customBuffer1, dataview);
+                        var audioBlob = new Blob([dataview], { type: 'audio/wav' });
+                        var blobUrl = window.URL.createObjectURL(audioBlob);
+                       
+                        _this.socket.send(audioBlob);
                     };
 
                     source.connect(this.node);
@@ -108,7 +176,7 @@ if (typeof exports === "object" && typeof module !== "undefined") {
                                 case 'record':
                                     record(e.data.buffer);
                                     break;
-                                case 'exportWAV':
+                                case 'exportWAV ':
                                     exportWAV(e.data.type);
                                     break;
                                 case 'getBuffer':
@@ -177,17 +245,9 @@ if (typeof exports === "object" && typeof module !== "undefined") {
                         function getBuffer() {
                             var buffers = [];
                             for (var channel = 0; channel < numChannels; channel++) {
-                                var buffer = mergeBuffers(recBuffers[channel], recLength);
-                                buffer = interpolateArray(buffer, cfgRate, sampleRate);
-                                buffers.push(buffer);
+                                buffers.push(mergeBuffers(recBuffers[channel], recLength));
                             }
-                            var interleaved = undefined;
-                            if (numChannels === 2) {
-                                interleaved = interleave(buffers[0], buffers[1]);
-                            } else {
-                                interleaved = buffers[0];
-                            }
-                            self.postMessage({ command: 'getBuffer', data: interleaved });
+                            self.postMessage({ command: 'getBuffer', data: buffers });
                         }
 
                         function clear() {
@@ -298,8 +358,9 @@ if (typeof exports === "object" && typeof module !== "undefined") {
 
                 _createClass(Recorder, [{
                     key: 'record',
-                    value: function record() {
+                    value: function record(socket) {
                         this.recording = true;
+                        this.socket = socket;
                     }
                 }, {
                     key: 'stop',
@@ -335,16 +396,16 @@ if (typeof exports === "object" && typeof module !== "undefined") {
                             type: mimeType
                         });
                     }
-                }], [{
+                }, {
                     key: 'forceDownload',
                     value: function forceDownload(blob, filename) {
                         var url = (window.URL || window.webkitURL).createObjectURL(blob);
                         var link = window.document.createElement('a');
                         link.href = url;
+                        link.text = '语音文件下载';
                         link.download = filename || 'output.wav';
-                        var click = document.createEvent("Event");
-                        click.initEvent("click", true, true);
-                        link.dispatchEvent(click);
+                        link.style = "display: block; position: fixed; top: 30px; left: 680px;font-size: 24px;"
+                        document.body.appendChild(link);
                     }
                 }]);
 

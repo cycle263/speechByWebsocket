@@ -6,7 +6,7 @@ var server = require('http').createServer();
 var io = require('socket.io')(server);
 
 io.on('connection', function (client) {
-  var countNum = 0;
+    var countNum = 0;
 
     client.on('init', function (data, fn) {
         console.log(data);
@@ -14,29 +14,29 @@ io.on('connection', function (client) {
     });
 
     client.on('with-binary', function (data, fn) {
-      countNum++;
-      if (countNum < 3) {
-        io.emit('Clientevent', '正在获取到录音buffer...' + data);
-      }
+        countNum++;
+        if (countNum < 3) {
+            io.emit('Clientevent', '正在获取到录音buffer...' + data);
+        }
     });
 
     setTimeout(() => {
-      const mp4 = path.resolve(__dirname, '../assets/aliyun.mp4');
-      let readStream = fs.createReadStream(mp4);
+        // const mp4 = path.resolve(__dirname, '../assets/aliyun.mp4');
+        // let readStream = fs.createReadStream(mp4);
 
-      readStream.on('data', (chunk) => {
-        console.log('readStream: ', chunk.length, chunk.byteLength);
-        io.emit('Clientevent', chunk);
-      })
+        // readStream.on('data', (chunk) => {
+        //     // console.log('readStream: ', chunk.length, chunk.byteLength);
+        //     io.emit('Clientevent', chunk);
+        // });
 
-      io.emit('Clientevent', {
-        "success": true,
-        "finish": false,
-        "text": "请问你是不是遇到了花呗无法支付",
-        "actorType": "SERVER or CUSTOMER",
-        "bizId": "aaa",
-        "index": 1
-      });
+        io.emit('Clientevent', {
+            "success": true,
+            "finish": false,
+            "text": "请问你是不是遇到了花呗无法支付",
+            "actorType": "SERVER or CUSTOMER",
+            "bizId": "aaa",
+            "index": 1
+        });
     }, 2000);
 
     client.on('disconnect', function () { 
